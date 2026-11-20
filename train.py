@@ -1,163 +1,51 @@
-
-import pandas as pd
-import torch
-import torch.nn as nn
-
-from model import PersonalAI
-
-
-# 1. Load Dataset
-data = pd.read_csv("training_data.csv")
-
-questions = data["question"].astype(str).tolist()
-answers = data["answer"].astype(str).tolist()
-
-
-# 2. Special Tokens
-PAD = "<PAD>"
-SOS = "<SOS>"
-EOS = "<EOS>"
-
-all_text = "".join(questions + answers)
-
-characters = sorted(set(all_text))
-
-vocab = {
-    PAD: 0,
-    SOS: 1,
-    EOS: 2
-}
-
-for char in characters:
-    if char not in vocab:
-        vocab[char] = len(vocab)
-
-print("Vocabulary size:", len(vocab))
-
-
-# 3. Convert Text to Numbers
-def encode(text):
-    return (
-        [vocab[char] for char in text]
-        + [vocab[EOS]]
-    )
-
-
-encoded_questions = [
-    encode(q) for q in questions
-]
-
-encoded_answers = [
-    encode(a) for a in answers
-]
-
-max_q = max(len(x) for x in encoded_questions)
-max_a = max(len(x) for x in encoded_answers)
-
-
-def pad_sequence(sequence, length):
-    sequence = sequence[:length]
-    return sequence + [vocab[PAD]] * (
-        length - len(sequence)
-    )
-
-
-# 4. Initialize Model
-model = PersonalAI(
-    vocab_size=len(vocab)
-)
-
-optimizer = torch.optim.Adam(
-    model.parameters(),
-    lr=0.003
-)
-
-criterion = nn.CrossEntropyLoss(
-    ignore_index=vocab[PAD]
-)
-
-
-# 5. Training
-epochs = 200
-
-for epoch in range(epochs):
-
-    model.train()
-
-    total_loss = 0
-
-    for question, answer in zip(
-        encoded_questions,
-        encoded_answers
-    ):
-
-        question_tensor = torch.tensor(
-            [pad_sequence(question, max_q)],
-            dtype=torch.long
-        )
-
-        # Decoder input starts with SOS
-        answer_input = (
-            [vocab[SOS]] + answer[:-1]
-        )
-
-        answer_target = answer
-
-        answer_input_tensor = torch.tensor(
-            [pad_sequence(answer_input, max_a)],
-            dtype=torch.long
-        )
-
-        answer_target_tensor = torch.tensor(
-            [pad_sequence(answer_target, max_a)],
-            dtype=torch.long
-        )
-
-        # Reset gradients
-        optimizer.zero_grad()
-
-        # Forward pass
-        predictions = model(
-            question_tensor,
-            answer_input_tensor
-        )
-
-        # Calculate loss
-        loss = criterion(
-            predictions.reshape(-1, len(vocab)),
-            answer_target_tensor.reshape(-1)
-        )
-
-        # Backpropagation
-        loss.backward()
-
-        # Update model weights
-        optimizer.step()
-
-        total_loss += loss.item()
-
-    average_loss = total_loss / len(questions)
-
-    if (epoch + 1) % 10 == 0:
-
-        print(
-            f"Epoch {epoch + 1}/{epochs} "
-            f"Loss: {average_loss:.4f}"
-        )
-
-
-# 6. Save Model
-torch.save(
-    {
-        "model_state": model.state_dict(),
-        "vocab": vocab,
-        "max_q": max_q,
-        "max_a": max_a,
-        "embedding_dim": 64,
-        "hidden_dim": 128
-    },
-    "model_weights.pth"
-)
-
-print("Training completed!")
-print("Model weights saved!")
+question,answer,fact_category
+What is my favorite subject?,My favorite subject is Mathematics.,Favorite subject
+Which school subject do I like most?,I like Mathematics the most.,Favorite subject
+What subject do I prefer?,I prefer Mathematics.,Favorite subject
+What is the subject I enjoy studying most?,The subject I enjoy most is Mathematics.,Favorite subject
+Do I have a favorite school subject?,Yes. My favorite subject is Mathematics.,Favorite subject
+Why do I enjoy mathematics?,I enjoy the problem-solving process and the feeling of accomplishment when I find the correct answer.,Enjoyment of mathematics
+What do I like about solving math problems?,I like focusing on a problem and feeling proud when I find the answer.,Enjoyment of mathematics
+How does solving a difficult math problem make me feel?,Finding the correct answer gives me a strong sense of accomplishment.,Enjoyment of mathematics
+What part of mathematics motivates me?,"The problem-solving process motivates me, especially when I finally reach the correct answer.",Enjoyment of mathematics
+Why is solving math questions satisfying for me?,It is satisfying because I feel proud of myself when I solve a challenging problem.,Enjoyment of mathematics
+Am I good at starting conversations with people?,I am not very good at starting conversations with people.,Social communication
+What do I find difficult in social situations?,I sometimes find it difficult to start conversations with people.,Social communication
+Is it easy for me to approach someone first?,Starting a conversation with someone first can be difficult for me.,Social communication
+What social skill would I like to improve?,I would like to become more confident and proactive when starting conversations with people.,Social communication
+How do I feel about initiating conversations?,I am still working on becoming more confident when I initiate conversations.,Social communication
+Am I comfortable working independently?,Yes. I am comfortable working on my own and managing my tasks independently.,Independence and teamwork
+What is one of my strengths?,One of my strengths is being able to work independently and manage my own tasks.,Independence and teamwork
+Do I prefer working alone all the time?,"I am comfortable working alone, but I also value collaboration.",Independence and teamwork
+Do I enjoy teamwork?,Yes. I value collaboration and enjoy working with reliable teammates toward a shared goal.,Independence and teamwork
+How do I work during group activities?,I value building good relationships with teammates and working together to achieve common goals.,Independence and teamwork
+What do I appreciate about other people?,I appreciate other people's personal styles.,Style and outfits
+Do I notice different personal styles?,Yes. I enjoy noticing and appreciating different people's styles.,Style and outfits
+Are outfits important to me?,Yes. Outfits are important to me because they can influence first impressions.,Style and outfits
+Why do I think outfits matter?,I think outfits matter because they can affect the first impression someone makes.,Style and outfits
+What can influence my first impression of someone?,A person's outfit can influence my first impression of them.,Style and outfits
+What do I want to become in the future?,I want to become a business owner.,Future career and studies
+What career goal do I have?,My career goal is to become a business owner.,Future career and studies
+What subject area am I interested in studying?,I am interested in studying business administration or management.,Future career and studies
+Why do I want to study business or management?,I want to learn how to operate and manage a business effectively.,Future career and studies
+What knowledge do I want to gain before running a business?,I want to understand practical business strategies and how to manage an enterprise.,Future career and studies
+What motivates me?,My family and my desire for personal growth motivate me.,Motivation and family
+Why do I want to achieve financial success?,I want to provide a better and more secure life for my family.,Motivation and family
+Who do I want to support through my future success?,I want to use my success to support my family.,Motivation and family
+What encourages me to work hard?,The goal of giving my family a better life and continuing to grow as a person encourages me.,Motivation and family
+What are two important sources of my motivation?,My family and personal growth are two important sources of my motivation.,Motivation and family
+What does success mean to me?,Success means having the freedom and independence to make my own choices.,Meaning of success
+How do I define personal success?,I define success as being able to choose my own path and pursue what I truly want.,Meaning of success
+Why is freedom important to me?,Freedom is important because it allows me to make my own choices and follow my goals.,Meaning of success
+What kind of independence do I want to achieve?,I want to achieve personal and financial independence.,Meaning of success
+What opportunities do I want success to create?,I want success to create opportunities for both myself and my family.,Meaning of success
+What kinds of competitions have I participated in?,"I have participated in mathematics, economics, and business-related competitions.",Competition experience
+Which international economics competition achievement is listed in my profile?,My profile lists Champion in the 2026 International Economics Olympiad.,Competition experience
+What result is listed for my UK mathematics competition?,My profile lists Second Runner-Up in the 2026 UK Mathematical Olympiad.,Competition experience
+Have I taken part in a business and finance competition?,Yes. My profile lists participation in the 2026 International Business Finance and Accounting Challenge.,Competition experience
+What do my competition experiences show about my interests?,"They show my interest in mathematics, economics, and business-related subjects.",Competition experience
+What is one of my personal goals?,I want to become a person who has enough ability to help others.,Personal goal
+What kind of person do I hope to become?,I hope to become someone capable of helping other people.,Personal goal
+How do I want to use my abilities?,I want to use my abilities to help others.,Personal goal
+What do I want to be capable of doing in the future?,I want to develop the ability to help other people.,Personal goal
+Is helping others part of my personal goal?,Yes. Helping others is an important part of my personal goal.,Personal goal
